@@ -1,6 +1,3 @@
-from SnakeBot import TURN_LEFT
-
-
 DIR_UP = 0
 DIR_RIGHT = 1
 DIR_DOWN = 2
@@ -11,7 +8,7 @@ TURN_RIGHT = 1
 TURN_DOWN = 2
 TURN_LEFT = 3
 
-class Snake:
+class SnakeUnit:
     def __init__(self):
         self.direction = DIR_RIGHT
         self.directionWasChanged = False

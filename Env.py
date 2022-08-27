@@ -5,6 +5,7 @@ from __future__ import print_function
 import abc
 import tensorflow as tf
 import numpy as np
+import gym
 
 from tf_agents.environments import py_environment
 from tf_agents.environments import tf_environment
@@ -15,7 +16,7 @@ from tf_agents.environments import wrappers
 from tf_agents.environments import suite_gym
 from tf_agents.trajectories import time_step as ts
 
-class PySnakeEnvironment(object):
+class PySnakeEnvironment(gym.Env):
     
   def reset(self):
     """Return initial_time_step."""

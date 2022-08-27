@@ -1,4 +1,4 @@
-import tensorflow as tf
+#import tensorflow as tf
 import numpy as np
 
 TURN_UP = 0
@@ -37,19 +37,19 @@ DO_NOTHING = 4
 # 4. Turn left
 # 5. Do nothing
 #
-class SnakeBot:
+class SnakeAgent:
     def __init__(self):      
         numParameters = 9 * 9 + 1 + 4 + 1
-        self.m = tf.keras.Sequential([
-            tf.keras.layers.Input(shape=(numParameters,)),
-            tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(numParameters),
-            tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.Dense(512, activation='relu'),
-            tf.keras.layers.Dense(1024, activation='relu'),
-            tf.keras.layers.Dense(128, activation='relu'),
-            tf.keras.layers.Dense(5, activation='softmax')
-        ])
+        # self.m = tf.keras.Sequential([
+        #     tf.keras.layers.Input(shape=(numParameters,)),
+        #     tf.keras.layers.Flatten(),
+        #     tf.keras.layers.Dense(numParameters),
+        #     tf.keras.layers.Dense(128, activation='relu'),
+        #     tf.keras.layers.Dense(512, activation='relu'),
+        #     tf.keras.layers.Dense(1024, activation='relu'),
+        #     tf.keras.layers.Dense(128, activation='relu'),
+        #     tf.keras.layers.Dense(5, activation='softmax')
+        # ])
 
     def makeDecision(self):
         return 4

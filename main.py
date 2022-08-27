@@ -1,12 +1,12 @@
-from Snake import Snake, DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT
-from Wall import Wall
+from gym_examples.gym_examples.envs.snake.snake_unit import Snake, DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT
+from gym_examples.gym_examples.envs.snake.wall import Wall
 #import tensorflow as tf
 import numpy as np
 import random
 import sys, pygame
 import math
-import SnakeEngine as sk
-import DrawSnake as sr
+import gym_examples.gym_examples.envs.snake.engine as sk
+import gym_examples.gym_examples.envs.snake.render as sr
 import SnakeBot as sb
 
 
@@ -49,7 +49,7 @@ snakeEngine.reset()
 
 bot = sb.SnakeBot()
 
-render = sr.DrawSnake(screen, grid, cellWidth, cellHeight, screenOffset)
+render = sr.DrawSnake(screen, grid, size)
 
 def endGame():
     print('End game')

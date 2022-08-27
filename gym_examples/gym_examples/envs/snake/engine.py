@@ -23,6 +23,7 @@ class SnakeEngine:
         self.snakes = [] # Snake.py
         self.walls = [] # Wall.py
         self.foodPos = (-1, -1)
+        self.foodReached = False
 
     def reset(self):
         self.isGameEnd = False
@@ -33,6 +34,9 @@ class SnakeEngine:
 
         # init food position
         self.generateNewFood()
+    
+    def getFoodPosition(self):
+        return self.foodPos
 
     def generateNewFood(self):
         matrix = self.getMatrix()
@@ -67,6 +71,9 @@ class SnakeEngine:
 
     def isFood(self, pos):
         return pos[0] == self.foodPos[0] and pos[1] == self.foodPos[1]
+    
+    def isFoodReached(self):
+        return self.foodReached
 
     def step(self):
         if self.isGameEnd:
@@ -105,7 +112,7 @@ class SnakeEngine:
 
                 matrix[pos[0]][pos[1]] = TYPE_SNAKE
 
-        foodGenerated = False
+        self.foodReached = False
         for snake in self.snakes:
             if not snake.isDie:
                 snake.snake = snake.nextSnake[::]
@@ -113,9 +120,17 @@ class SnakeEngine:
                 snake.step()
 
                 pos = snake.getHeadPos()
-                if not foodGenerated and pos[0] == self.foodPos[0] and pos[1] == self.foodPos[1]:
+                if not self.foodReached and pos[0] == self.foodPos[0] and pos[1] == self.foodPos[1]:
                     self.generateNewFood()
-                    foodGenerated = True
+                    self.foodReached = True
+
+        self.checkIfAllDied()
+
+    def checkIfAllDied(self):
+        for snake in self.snakes:
+            if not snake.isDie:
+                return
+        self.isGameEnd = True
 
     def checkPosOutOfRange(self, pos):
         return pos[0] > self.size[0] - 1 or pos[1] > self.size[1] - 1 or pos[0] < 0 or pos[1] < 0
