@@ -1,8 +1,10 @@
 import gym
 from gym import spaces
-from gym.utils.renderer import Renderer
 import pygame
 import numpy as np
+
+from gym_examples.envs.render import Renderer
+
 
 
 class GridEnv(gym.Env):

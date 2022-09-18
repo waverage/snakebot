@@ -1,5 +1,6 @@
 import math
 import random
+import numpy as np
 
 DIR_UP = 0
 DIR_RIGHT = 1
@@ -185,3 +186,37 @@ class SnakeEngine:
 
     def addWall(self, wall):
         self.walls.append(wall)
+
+    def getVisibleArea(self, size, headPos):
+        matrix = np.array(self.getMatrix())
+
+        xHalfSize = math.floor(size[0] / 2)
+        yHalfSize = math.floor(size[1] / 2)
+
+        x0 = headPos[0] - xHalfSize
+        x1 = headPos[0] + xHalfSize + 1
+
+        y0 = headPos[1] - yHalfSize
+        y1 = headPos[1] + yHalfSize + 1
+
+        area = matrix[x0:x1,y0:y1]
+
+        if x0 < 0:
+            addToXBegin = abs(x0)
+            area = np.pad(area, ((addToXBegin, 0), (0, 0)), 'constant', constant_values=0)
+        if x1 > self.size[0]:
+            addToXEnd = x1 - (self.size[0])
+            area = np.pad(area, ((0, addToXEnd), (0, 0)), 'constant', constant_values=0)
+        if y0 < 0:
+            addToYBegin = abs(y0)
+            area = np.pad(area, ((0, 0), (addToYBegin, 0)), 'constant', constant_values=0)
+        if y1 > self.size[1]:
+            addToYEnd = y1 - (self.size[1])
+            area = np.pad(area, ((0, 0), (0, addToYEnd)), 'constant', constant_values=0)
+
+        for x in range(0, len(area)):
+            for y in range(0, len(area[x])):
+                if area[x][y] >= 2 and area[x][y] <= 5:
+                    area[x][y] = TYPE_SNAKE
+
+        return area

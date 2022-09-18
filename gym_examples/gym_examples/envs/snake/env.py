@@ -1,6 +1,6 @@
 import gym
 from gym import spaces
-from gym.utils.renderer import Renderer
+from gym_examples.envs.render import Renderer
 import pygame
 import numpy as np
 import math
@@ -12,20 +12,27 @@ from gym_examples.envs.snake.render import SnakeRenderer
 #from snake_unit import SnakeUnit
 
 class SnakeEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array", "single_rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human", "rgb_array", "single_rgb_array"], "render_fps": 2}
 
     def __init__(self, render_mode='human', size=10):
         self.size = size  # The size of the square grid
         self.window_size = 720  # The size of the PyGame window
+        self.visibleAreaSize = 5
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
-        self.observation_space = spaces.Dict(
-            {
-                "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-            }
-        )
+
+        self.observation_space = spaces.Dict({
+            "area": spaces.Box(0, 5, shape=(self.visibleAreaSize, self.visibleAreaSize)),
+            "head": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+            "target": spaces.Box(0, size - 1, shape=(2,), dtype=int)
+        })
+
+        #  {
+        #         "area": spaces.Box(0, 5, shape=(self.visibleAreaSize, self.visibleAreaSize)),
+        #         "head": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        #         "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+        #     }
 
         # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
         self.action_space = spaces.Discrete(4)
@@ -46,21 +53,24 @@ class SnakeEnv(gym.Env):
         self._drawer = None
 
     def _get_obs(self):
+        # return (self._visibleArea, self._headPos, self._target_location)
+
+        # print('_get_obs')
+        # print('area', self._visibleArea)
+        # print('head', self._headPos)
+        # print('target', self._target_location)
         return {
-            "agent": self._agentArr,
+            "area": self._visibleArea,
+            "head": self._headPos,
             "target": self._target_location
+            # "distance": np.linalg.norm(
+            #     np.array(self._headPos) - np.array(self._target_location), ord=1
+            # )
         }
 
-    def _get_info(self):
-        return {
-            "distance": np.linalg.norm(
-                np.array(self._agent_location) - np.array(self._target_location), ord=1
-            )
-        }
-
-    def reset(self, seed=None, return_info=False, options=None):
+    def reset(self):
         # We need the following line to seed self.np_random
-        super().reset(seed=seed)
+        #super().reset()
 
         self.engine = SnakeEngine((self.size, self.size))
 
@@ -82,23 +92,22 @@ class SnakeEnv(gym.Env):
 
         self.engine.reset()
 
-        self._agentArr = self.snakeUnit.getArr()
+        self._headPos = self.snakeUnit.getHeadPos()
+        self._visibleArea = self.engine.getVisibleArea((self.visibleAreaSize, self.visibleAreaSize), self.snakeUnit.getHeadPos())
 
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.snakeUnit.getHeadPos() #self.np_random.integers(0, self.size, size=2, dtype=int)
-        print('')
-        print('Agent arr', self._agentArr)
+        # print('')
+        # print('Agent head pos', self._headPos)
+        # print('Agent area', self._visibleArea)
 
         # We will sample the target's location randomly until it does not coincide with the agent's location
         self._target_location = self.engine.getFoodPosition()
 
         observation = self._get_obs()
-        info = self._get_info()
 
         self._renderer.reset()
         self._renderer.render_step()
 
-        return (observation, info) if return_info else observation
+        return observation
 
     def step(self, action):
         self.snakeUnit.turn(action)
@@ -112,22 +121,22 @@ class SnakeEnv(gym.Env):
         elif self.engine.isGameOver():
             reward = -1
             done = True
-            print('Game end')
+            # print('Game end')
         else:
             reward = 0
 
-        self._agentArr = self.snakeUnit.getArr()
-        self._agent_location = self.snakeUnit.getHeadPos()
+        self._headPos = self.snakeUnit.getHeadPos()
+        self._visibleArea = self.engine.getVisibleArea((self.visibleAreaSize, self.visibleAreaSize), self.snakeUnit.getHeadPos())
         self._target_location = self.engine.getFoodPosition()
 
         observation = self._get_obs()
-        info = self._get_info()
 
         self._renderer.render_step()
 
-        return observation, reward, done, info
+        return observation, reward, done, {}
 
-    def render(self):
+    def render(self, second):
+        print('render second arg', second)
         return self._renderer.get_renders()
 
     def _render_frame(self, mode):
