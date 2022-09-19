@@ -22,7 +22,9 @@ class SnakeRenderer:
         self.windowSize = windowSize
         self.canvas = pygame.Surface(windowSize)
 
-    def draw(self, matrix):
+    def draw(self, matrix, info):
+        visibleArea = info["visibleArea"]
+
         self.canvas.fill(BLACK)
 
         offset = math.floor(self.screenOffset / 2)
@@ -34,6 +36,8 @@ class SnakeRenderer:
         #     for ho in range(0, self.grid[1] + 1):
         #         pygame.draw.line(self.canvas, BLUE, (offset, ho * self.cellHeight + offset), (self.cellHeight * self.grid[1] + offset, ho * self.cellHeight + offset))
 
+        headPos = []
+
         for x in range(0, self.grid[0]):
             for y in range(0, self.grid[1]):
                 x0 = x * self.cellWidth + offset + innerBoxOffset
@@ -42,11 +46,27 @@ class SnakeRenderer:
                 if matrix[x][y] == TYPE_SNAKE:
                     pygame.draw.rect(self.canvas, GREEN, (x0, y0, self.cellWidth - (innerBoxOffset * 2), self.cellHeight - (innerBoxOffset * 2)))
                 elif self.isHeadBlock(matrix[x][y]):
+                    headPos = [x, y]
                     self.drawHead(x0, y0, matrix[x][y], innerBoxOffset)
                 elif matrix[x][y] == TYPE_FOOD:
                     pygame.draw.rect(self.canvas, RED, (x0, y0, self.cellWidth - (innerBoxOffset * 2), self.cellHeight - (innerBoxOffset * 2)))
                 elif matrix[x][y] == TYPE_WALL:
                     pygame.draw.rect(self.canvas, SILVER, (x0, y0, self.cellWidth - (innerBoxOffset * 2), self.cellHeight - (innerBoxOffset * 2)))
+
+        
+        s = pygame.Surface((1000,750))  # the size of your rect
+        s.set_alpha(32)                # alpha level
+        #s.fill((255,255,255))           # this fills the entire surface
+        visibleAreaOffset = round(len(visibleArea) / 2)
+        for x in range(0, len(visibleArea)):
+            for y in range(0, len(visibleArea[x])):
+                rx = headPos[0] + x - visibleAreaOffset
+                ry = headPos[1] + y - visibleAreaOffset
+                x0 = rx * self.cellWidth + offset + innerBoxOffset
+                y0 = ry * self.cellHeight + offset + innerBoxOffset
+                pygame.draw.rect(s, RED, (x0, y0, self.cellWidth - (innerBoxOffset * 2), self.cellHeight - (innerBoxOffset * 2)))
+
+        self.canvas.blit(s, (0,0))    # (0,0) are the top-left coordinates
 
         return self.canvas
 

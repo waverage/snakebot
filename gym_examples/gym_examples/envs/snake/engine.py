@@ -8,12 +8,12 @@ DIR_DOWN = 2
 DIR_LEFT = 3
 
 TYPE_EMPTY = 0
-TYPE_SNAKE = 1
+TYPE_FOOD = 1
 TYPE_SNAKE_HEAD_UP = 2
 TYPE_SNAKE_HEAD_RIGHT = 3
 TYPE_SNAKE_HEAD_DOWN = 4
 TYPE_SNAKE_HEAD_LEFT = 5
-TYPE_FOOD = 6
+TYPE_SNAKE = 6
 TYPE_WALL = 7
 
 class SnakeEngine:
@@ -194,25 +194,37 @@ class SnakeEngine:
         yHalfSize = math.floor(size[1] / 2)
 
         x0 = headPos[0] - xHalfSize
+        rawX0 = headPos[0] - xHalfSize
+        if x0 < 0:
+            x0 = 0
         x1 = headPos[0] + xHalfSize + 1
 
+
         y0 = headPos[1] - yHalfSize
+        rawY0 = headPos[1] - yHalfSize
+        if y0 < 0:
+            y0 = 0
         y1 = headPos[1] + yHalfSize + 1
 
         area = matrix[x0:x1,y0:y1]
 
-        if x0 < 0:
-            addToXBegin = abs(x0)
+        #print('x0', x0, 'x1', x1, 'y0', y0, 'y1', y1, 'rawx0', rawX0, 'rawy0', rawY0)
+        #print('area raw', area)
+
+        if rawX0 < 0:
+            addToXBegin = abs(rawX0)
             area = np.pad(area, ((addToXBegin, 0), (0, 0)), 'constant', constant_values=0)
         if x1 > self.size[0]:
             addToXEnd = x1 - (self.size[0])
             area = np.pad(area, ((0, addToXEnd), (0, 0)), 'constant', constant_values=0)
-        if y0 < 0:
-            addToYBegin = abs(y0)
+        if rawY0 < 0:
+            addToYBegin = abs(rawY0)
             area = np.pad(area, ((0, 0), (addToYBegin, 0)), 'constant', constant_values=0)
         if y1 > self.size[1]:
             addToYEnd = y1 - (self.size[1])
             area = np.pad(area, ((0, 0), (0, addToYEnd)), 'constant', constant_values=0)
+
+        #print('padded area', area)
 
         for x in range(0, len(area)):
             for y in range(0, len(area[x])):

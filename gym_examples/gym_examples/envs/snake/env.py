@@ -1,3 +1,4 @@
+from ctypes.wintypes import FLOAT
 import gym
 from gym import spaces
 from gym_examples.envs.render import Renderer
@@ -12,27 +13,24 @@ from gym_examples.envs.snake.render import SnakeRenderer
 #from snake_unit import SnakeUnit
 
 class SnakeEnv(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array", "single_rgb_array"], "render_fps": 2}
+    metadata = {"render_modes": ["human", "rgb_array", "single_rgb_array", "none"], "render_fps": 10}
 
     def __init__(self, render_mode='human', size=10):
         self.size = size  # The size of the square grid
         self.window_size = 720  # The size of the PyGame window
         self.visibleAreaSize = 5
+        self.distanceToFood = 0
+        self.closed = False
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
 
         self.observation_space = spaces.Dict({
-            "area": spaces.Box(0, 5, shape=(self.visibleAreaSize, self.visibleAreaSize)),
-            "head": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-            "target": spaces.Box(0, size - 1, shape=(2,), dtype=int)
+            "area": spaces.Box(-1, 1, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=float),
+            "head": spaces.Box(-1, 1, shape=(2,), dtype=float),
+            "target": spaces.Box(-1, 1, shape=(2,), dtype=float),
+            "direction": spaces.Discrete(4)
         })
-
-        #  {
-        #         "area": spaces.Box(0, 5, shape=(self.visibleAreaSize, self.visibleAreaSize)),
-        #         "head": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-        #         "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-        #     }
 
         # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
         self.action_space = spaces.Discrete(4)
@@ -53,20 +51,47 @@ class SnakeEnv(gym.Env):
         self._drawer = None
 
     def _get_obs(self):
-        # return (self._visibleArea, self._headPos, self._target_location)
+        flattenArea = []
+        for row in self._visibleArea:
+            for val in row:
+                flattenArea.append(self.normalizeCellType(val))
 
-        # print('_get_obs')
-        # print('area', self._visibleArea)
-        # print('head', self._headPos)
-        # print('target', self._target_location)
+        #print('len x', len(self._visibleArea), 'len y', len(self._visibleArea))
+        #print('Head pos', self._headPos)
+        #print('flatten area, len', len(flattenArea), 'arr', flattenArea)
+
         return {
-            "area": self._visibleArea,
-            "head": self._headPos,
-            "target": self._target_location
+            "area": np.array(flattenArea),
+            "head": self.getNormalizedHeadPos(),
+            "target": self.getNormalizedTargetPos(),
+            "direction": self.snakeUnit.direction
             # "distance": np.linalg.norm(
             #     np.array(self._headPos) - np.array(self._target_location), ord=1
             # )
         }
+
+    def normalizeCellType(self, cellType):
+        if cellType > 7:
+            cellType = 7
+        return self.norm(cellType, 0, 7)
+    
+    def getNormalizedHeadPos(self):
+        x = self.norm(self._headPos[0], 0, self.size - 1)
+        y = self.norm(self._headPos[1], 0, self.size - 1)
+        return np.array([x, y])
+
+    def getNormalizedTargetPos(self):
+        x = self.norm(self._target_location[0], 0, self.size - 1)
+        y = self.norm(self._target_location[1], 0, self.size - 1)
+        return np.array([x, y])
+
+
+    # normalize from -1 to 1
+    def norm(self, val, min, max):
+        return 2 * ((val - min) / (max - min)) - 1
+
+    def getDistanceToFood(self):
+        return np.linalg.norm(np.array(self._headPos) - np.array(self._target_location), ord=1)
 
     def reset(self):
         # We need the following line to seed self.np_random
@@ -74,6 +99,7 @@ class SnakeEnv(gym.Env):
 
         self.engine = SnakeEngine((self.size, self.size))
 
+        self.distanceToFood = 0
         self.snakeUnit = SnakeUnit()
         x = math.floor(self.size / 2)
         y = math.floor(self.size / 2)
@@ -119,24 +145,39 @@ class SnakeEnv(gym.Env):
         if self.engine.isFoodReached():
             reward = 1
         elif self.engine.isGameOver():
+            if self.render_mode == "human":
+                snakeLen = len(self.snakeUnit.snake)
+                print('Game over: ', snakeLen)
             reward = -1
             done = True
             # print('Game end')
         else:
-            reward = 0
+            distance = self.getDistanceToFood()
+            #print('distance to food', distance)
+            if distance > self.distanceToFood:
+                reward = 0
+            else:
+                reward = 0.1
+
+            self.distanceToFood = distance
 
         self._headPos = self.snakeUnit.getHeadPos()
         self._visibleArea = self.engine.getVisibleArea((self.visibleAreaSize, self.visibleAreaSize), self.snakeUnit.getHeadPos())
+        #if self.render_mode == "human":
+            #print('visible area')
+            #print(self._visibleArea)
         self._target_location = self.engine.getFoodPosition()
 
         observation = self._get_obs()
 
         self._renderer.render_step()
 
-        return observation, reward, done, {}
+        return observation, reward, done, {
+            "closed": self.closed
+        }
 
     def render(self, second):
-        print('render second arg', second)
+        #print('render second arg', second)
         return self._renderer.get_renders()
 
     def _render_frame(self, mode):
@@ -152,7 +193,10 @@ class SnakeEnv(gym.Env):
         if self._drawer is None and mode == "human":
             self._drawer = SnakeRenderer(self.window, (self.size, self.size), (self.window_size, self.window_size))
 
-        canvas = self._drawer.draw(self.engine.getMatrix())
+        if mode == "human":
+            canvas = self._drawer.draw(self.engine.getMatrix(), {
+                "visibleArea": self._visibleArea
+            })
 
         if mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
@@ -160,15 +204,24 @@ class SnakeEnv(gym.Env):
             pygame.event.pump()
             pygame.display.update()
 
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print('Received pygame.quit')
+                    self.close()
+                    return
+
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
+        elif mode == "rgb_array":
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
+        else:  # rgb_array
+            return None
 
     def close(self):
+        self.closed = True
         if self.window is not None:
             pygame.display.quit()
             pygame.quit()
