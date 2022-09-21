@@ -187,11 +187,22 @@ class SnakeEngine:
     def addWall(self, wall):
         self.walls.append(wall)
 
+    def _fixSnakeCellTypes(self, area):
+        for x in range(0, len(area)):
+            for y in range(0, len(area[x])):
+                if area[x][y] >= 2 and area[x][y] <= 5:
+                    area[x][y] = TYPE_SNAKE
+
+        return area
+
     def getVisibleArea(self, size, headPos):
         matrix = np.array(self.getMatrix())
 
-        xHalfSize = math.floor(size[0] / 2)
-        yHalfSize = math.floor(size[1] / 2)
+        if size == self.size[0]:
+            return self._fixSnakeCellTypes(matrix)
+
+        xHalfSize = math.floor(size / 2)
+        yHalfSize = math.floor(size / 2)
 
         x0 = headPos[0] - xHalfSize
         rawX0 = headPos[0] - xHalfSize
@@ -226,9 +237,4 @@ class SnakeEngine:
 
         #print('padded area', area)
 
-        for x in range(0, len(area)):
-            for y in range(0, len(area[x])):
-                if area[x][y] >= 2 and area[x][y] <= 5:
-                    area[x][y] = TYPE_SNAKE
-
-        return area
+        return self._fixSnakeCellTypes(area)

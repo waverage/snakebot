@@ -18,7 +18,7 @@ class SnakeEnv(gym.Env):
     def __init__(self, render_mode='human', size=10):
         self.size = size  # The size of the square grid
         self.window_size = 720  # The size of the PyGame window
-        self.visibleAreaSize = 5
+        self.visibleAreaSize = 10
         self.distanceToFood = 0
         self.closed = False
 
@@ -30,6 +30,7 @@ class SnakeEnv(gym.Env):
             "head": spaces.Box(-1, 1, shape=(2,), dtype=float),
             "target": spaces.Box(-1, 1, shape=(2,), dtype=float),
             "direction": spaces.Discrete(4)
+            #"direction": spaces.Box(-1, 1, shape=(), dtype=float),#spaces.Discrete(4)
         })
 
         # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
@@ -51,14 +52,10 @@ class SnakeEnv(gym.Env):
         self._drawer = None
 
     def _get_obs(self):
-        flattenArea = []
-        for row in self._visibleArea:
-            for val in row:
-                flattenArea.append(self.normalizeCellType(val))
-
-        #print('len x', len(self._visibleArea), 'len y', len(self._visibleArea))
-        #print('Head pos', self._headPos)
-        #print('flatten area, len', len(flattenArea), 'arr', flattenArea)
+        flattenArea = self._getFlattenVisibleArea()
+        # if self.render_mode == "human":
+        #     print('visible area', len(flattenArea))
+        #     print(flattenArea)
 
         return {
             "area": np.array(flattenArea),
@@ -69,6 +66,13 @@ class SnakeEnv(gym.Env):
             #     np.array(self._headPos) - np.array(self._target_location), ord=1
             # )
         }
+
+    def _getFlattenVisibleArea(self):
+        flattenArea = []
+        for row in self._visibleArea:
+            for val in row:
+                flattenArea.append(self.normalizeCellType(val))
+        return flattenArea
 
     def normalizeCellType(self, cellType):
         if cellType > 7:
@@ -84,7 +88,6 @@ class SnakeEnv(gym.Env):
         x = self.norm(self._target_location[0], 0, self.size - 1)
         y = self.norm(self._target_location[1], 0, self.size - 1)
         return np.array([x, y])
-
 
     # normalize from -1 to 1
     def norm(self, val, min, max):
@@ -119,7 +122,7 @@ class SnakeEnv(gym.Env):
         self.engine.reset()
 
         self._headPos = self.snakeUnit.getHeadPos()
-        self._visibleArea = self.engine.getVisibleArea((self.visibleAreaSize, self.visibleAreaSize), self.snakeUnit.getHeadPos())
+        self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
 
         # print('')
         # print('Agent head pos', self._headPos)
@@ -162,10 +165,7 @@ class SnakeEnv(gym.Env):
             self.distanceToFood = distance
 
         self._headPos = self.snakeUnit.getHeadPos()
-        self._visibleArea = self.engine.getVisibleArea((self.visibleAreaSize, self.visibleAreaSize), self.snakeUnit.getHeadPos())
-        #if self.render_mode == "human":
-            #print('visible area')
-            #print(self._visibleArea)
+        self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
         self._target_location = self.engine.getFoodPosition()
 
         observation = self._get_obs()

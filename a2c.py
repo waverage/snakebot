@@ -6,10 +6,9 @@ from stable_baselines3 import A2C
 env_name = "gym_examples/MySnake-v0"
 env = gym.make(env_name, render_mode="human")
 
-model = A2C.load("a2c_snake1",env=env)
+model = A2C.load("a2c_snake10",env=env)
 
 obs = env.reset()
-print('While true')
 while True:
     action, _states = model.predict(obs)
     obs, rewards, done, info = env.step(action)
