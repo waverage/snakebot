@@ -7,12 +7,9 @@ gym_examples.egg-info/dependency_links.txt
 gym_examples.egg-info/requires.txt
 gym_examples.egg-info/top_level.txt
 gym_examples/envs/__init__.py
-gym_examples/envs/grid.py
-gym_examples/envs/render.py
-gym_examples/envs/snake/agent.py
 gym_examples/envs/snake/engine.py
+gym_examples/envs/snake/env.py
 gym_examples/envs/snake/render.py
-gym_examples/envs/snake/snake.py
 gym_examples/envs/snake/snake_unit.py
 gym_examples/envs/snake/wall.py
 gym_examples/wrappers/__init__.py

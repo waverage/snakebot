@@ -1,7 +1,7 @@
 from ctypes.wintypes import FLOAT
 import gym
 from gym import spaces
-from gym_examples.envs.render import Renderer
+from gym_examples.render import Renderer
 import pygame
 import numpy as np
 import math
@@ -18,7 +18,7 @@ class SnakeEnv(gym.Env):
     def __init__(self, render_mode='human', size=10):
         self.size = size  # The size of the square grid
         self.window_size = 720  # The size of the PyGame window
-        self.visibleAreaSize = 10
+        self.visibleAreaSize = 3
         self.distanceToFood = 0
         self.closed = False
 

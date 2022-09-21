@@ -57,7 +57,7 @@ class SnakeRenderer:
         s = pygame.Surface((1000,750))  # the size of your rect
         s.set_alpha(32)                # alpha level
         #s.fill((255,255,255))           # this fills the entire surface
-        visibleAreaOffset = round(len(visibleArea) / 2)
+        visibleAreaOffset = round((len(visibleArea) - 1) / 2)
         for x in range(0, len(visibleArea)):
             for y in range(0, len(visibleArea[x])):
                 rx = headPos[0] + x - visibleAreaOffset
