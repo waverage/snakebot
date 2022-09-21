@@ -1,14 +1,14 @@
 from ctypes.wintypes import FLOAT
 import gym
 from gym import spaces
-from gym_examples.render import Renderer
+from ant.render import Renderer
 import pygame
 import numpy as np
 import math
-from gym_examples.envs.snake.engine import SnakeEngine
-from gym_examples.envs.snake.snake_unit import SnakeUnit
-from gym_examples.envs.snake.wall import Wall
-from gym_examples.envs.snake.render import SnakeRenderer
+from ant.envs.snake.engine import SnakeEngine
+from ant.envs.snake.snake_unit import SnakeUnit
+from ant.envs.snake.wall import Wall
+from ant.envs.snake.render import SnakeRenderer
 
 #from snake_unit import SnakeUnit
 

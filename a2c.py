@@ -1,9 +1,9 @@
 import gym
-import gym_examples
+import ant
 from stable_baselines3 import A2C
 
 # Parallel environments
-env_name = "gym_examples/MySnake-v0"
+env_name = "ant/Snake-v1"
 env = gym.make(env_name, render_mode="human")
 
 model = A2C.load("models/a2c_snake3",env=env)
