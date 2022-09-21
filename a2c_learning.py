@@ -1,9 +1,9 @@
 import gym
-import gym_examples
+import ant
 from stable_baselines3 import A2C
 import os.path
 
-env_name = "gym_examples/MySnake-v0"
+env_name = "ant/Snake-v1"
 env = gym.make(env_name, render_mode="none")#rgb_array
 model_name = 'a2c_3'
 
