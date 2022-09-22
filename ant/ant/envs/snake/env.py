@@ -12,15 +12,18 @@ from ant.envs.snake.render import SnakeRenderer
 
 #from snake_unit import SnakeUnit
 
+STEPS_LIMIT = 2000
+
 class SnakeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array", "single_rgb_array", "none"], "render_fps": 10}
 
     def __init__(self, render_mode='human', size=10):
         self.size = size  # The size of the square grid
         self.window_size = 720  # The size of the PyGame window
-        self.visibleAreaSize = 3
+        self.visibleAreaSize = 7
         self.distanceToFood = 0
         self.closed = False
+        self.steps = 0
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
@@ -102,6 +105,7 @@ class SnakeEnv(gym.Env):
 
         self.engine = SnakeEngine((self.size, self.size))
 
+        self.steps = 0
         self.distanceToFood = 0
         self.snakeUnit = SnakeUnit()
         x = math.floor(self.size / 2)
@@ -163,6 +167,11 @@ class SnakeEnv(gym.Env):
                 reward = 0.1
 
             self.distanceToFood = distance
+
+        self.steps += 1
+        if self.steps >= STEPS_LIMIT:
+            reward = -1
+            done = True
 
         self._headPos = self.snakeUnit.getHeadPos()
         self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
