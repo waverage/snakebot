@@ -1,12 +1,12 @@
 import gym
 import ant
-from stable_baselines3 import A2C
+from stable_baselines3 import DQN
 
 # Parallel environments
 env_name = "ant/Snake-v1"
 env = gym.make(env_name, render_mode="human", visibleArea=10)
 
-model = A2C.load("models/a2c_10",env=env)
+model = DQN.load("models/dqn_10", env=env, verbose=1)
 
 obs = env.reset()
 while True:
