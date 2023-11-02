@@ -31,8 +31,9 @@ class SnakeEnv(gym.Env):
         self.observation_space = spaces.Dict({
             "area": spaces.Box(-1, 1, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=float),
             "head": spaces.Box(0, 1, shape=(2,), dtype=float),
-            "target": spaces.Box(0, 1, shape=(2,), dtype=float),
-            "direction": spaces.Discrete(4),
+            "food": spaces.MultiBinary(4),
+            "direction": spaces.MultiBinary(4),
+            "danger": spaces.MultiBinary(3),
         })
 
         # We have 3 actions, corresponding to "left", "straight", "right"
@@ -55,18 +56,82 @@ class SnakeEnv(gym.Env):
 
     def _get_obs(self):
         flattenArea = self._getFlattenVisibleArea()
-        if self.render_mode == "human":
-            print('direction', self.snakeUnit.direction)
-            print('head', self.getNormalizedHeadPos())
-            print('target', self.getNormalizedTargetPos())
-            print('area', flattenArea)
+        # if self.render_mode == "human":
+        #     print('direction', self.snakeUnit.direction)
+        #     print('head', self.getNormalizedHeadPos())
+        #     print('target', self.getNormalizedTargetPos())
+        #     print('area', flattenArea)
 
         return {
             "area": np.array(flattenArea),
             "head": self.getNormalizedHeadPos(),
-            "target": self.getNormalizedTargetPos(),
-            "direction": self.snakeUnit.direction,
+            "food": self.getNormalizedFoodDirection(),
+            "direction": self.getNormalizedSnakeDirection(),
+            "danger": self.getDangerObs(),
         }
+
+    def getDangerObs(self):
+        hX = self._headPos[0]
+        hY = self._headPos[1]
+        d = self.snakeUnit.direction
+        # TYPE_EMPTY = 0
+        # TYPE_FOOD = 1
+        # TYPE_SNAKE_HEAD_UP = 2
+        # TYPE_SNAKE_HEAD_RIGHT = 3
+        # TYPE_SNAKE_HEAD_DOWN = 4
+        # TYPE_SNAKE_HEAD_LEFT = 5
+        # TYPE_SNAKE = 6
+        # TYPE_WALL = 7
+
+        m = self._visibleArea
+
+        v = [0, 0]
+        lv = [0, 0]
+        rv = [0, 0]
+        if d == DIR_UP:
+            v[1] = -1
+            lv[0] = -1
+            rv[0] = 1
+        elif d == DIR_DOWN:
+            v[1] = 1
+            lv[0] = 1
+            rv[0] = -1
+        if d == DIR_LEFT:
+            v[0] = -1
+            lv[1] = 1
+            rv[1] = -1
+        elif d == DIR_RIGHT:
+            v[0] = 1
+            lv[1] = -1
+            rv[1] = 1
+
+        return np.array([
+            1 if m[hX + v[0]][hY + v[1]] > 1 else 0, # ahead
+            1 if m[hX + lv[0]][hY + lv[1]] > 1 else 0, # left
+            1 if m[hX + rv[0]][hY + rv[1]] > 1 else 0, # right
+        ])
+    
+    def getNormalizedSnakeDirection(self):
+        d = self.snakeUnit.direction
+        return np.array([
+            1 if d == DIR_UP else 0,
+            1 if d == DIR_DOWN else 0,
+            1 if d == DIR_LEFT else 0,
+            1 if d == DIR_RIGHT else 0,
+        ])
+    
+    def getNormalizedFoodDirection(self):
+        hX = self._headPos[0]
+        hY = self._headPos[1]
+        fX = self._target_location[0]
+        fY = self._target_location[1]
+
+        return np.array([
+            1 if fY < hY else 0, # top
+            1 if fY > hY else 0, # down
+            1 if fX < hX else 0, # left
+            1 if fX > hX else 0, # right
+        ])
 
     def _getFlattenVisibleArea(self):
         flattenArea = []
@@ -95,10 +160,10 @@ class SnakeEnv(gym.Env):
         y = self.norm(self._headPos[1], 0, self.size - 1)
         return np.array([x, y])
 
-    def getNormalizedTargetPos(self):
-        x = self.norm(self._target_location[0], 0, self.size - 1)
-        y = self.norm(self._target_location[1], 0, self.size - 1)
-        return np.array([x, y])
+    # def getNormalizedTargetPos(self):
+    #     x = self.norm(self._target_location[0], 0, self.size - 1)
+    #     y = self.norm(self._target_location[1], 0, self.size - 1)
+    #     return np.array([x, y])
 
     # normalize from -1 to 1
     def norm(self, val, min, max):
@@ -148,10 +213,11 @@ class SnakeEnv(gym.Env):
         self._renderer.reset()
         self._renderer.render_step()
 
+        # print("reset obs ", observation)
+
         return observation
 
     def prepareModelAction(self, modelAction):
-        return modelAction
         # DIR_UP = 0
         # DIR_RIGHT = 1
         # DIR_DOWN = 2
@@ -159,6 +225,11 @@ class SnakeEnv(gym.Env):
         LEFT = 0
         STRAIGHT = 1
         RIGHT = 2
+
+        return modelAction
+
+        # if self.render_mode == "human":
+        #     print("modelAction", modelAction)
 
         if self.snakeUnit.direction == DIR_UP:
             if modelAction == LEFT:
@@ -203,15 +274,15 @@ class SnakeEnv(gym.Env):
             if self.render_mode == "human":
                 snakeLen = len(self.snakeUnit.snake)
                 print('Game over: ', snakeLen)
-            reward = -1
+            reward = -10
             done = True
         else:
             distance = self.getDistanceToFood()
             #print('distance to food', distance)
             if distance > self.distanceToFood:
-                reward = -0.07
+                reward = -0.11
             else:
-                reward = 0.05
+                reward = 0.1
 
             self.distanceToFood = distance
 

@@ -5,18 +5,18 @@ import os.path
 import torch as th
 from typing import Callable
 
-def linear_schedule(initial_value: float) -> Callable[[float], float]:
-    def func(progress_remaining: float) -> float:
-        left = 1 - progress_remaining
-        left = left / 2
-        left = 1 - left
-        return left * initial_value
+# def linear_schedule(initial_value: float) -> Callable[[float], float]:
+#     def func(progress_remaining: float) -> float:
+#         left = 1 - progress_remaining
+#         left = left / 2
+#         left = 1 - left
+#         return left * initial_value
 
-    return func
+#     return func
 
 env_name = "ant/Snake-v1"
 env = gym.make(env_name, render_mode="none", visibleArea=10)
-model_name = 'dqn_10'
+model_name = 'cnn_10'
 
 model_path = 'models/' + model_name + '.zip'
 if os.path.isfile(model_path):
@@ -29,13 +29,13 @@ else:
         net_arch=[128, 128]
     )
     model = DQN(
-        "MultiInputPolicy",
+        "CnnPolicy",
         env,
         verbose=1,
-        learning_starts=10000,
-        policy_kwargs=policy_kwargs,
-        learning_rate=linear_schedule(0.0001),
-        buffer_size=100_000,
+        # learning_starts=10000,
+        # policy_kwargs=policy_kwargs,
+        # learning_rate=linear_schedule(0.0001),
+        # buffer_size=100_000,
         # batch_size=32,
         # gradient_steps=1,
         # target_update_interval=10_000,
