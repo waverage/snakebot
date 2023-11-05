@@ -5,7 +5,7 @@ from ant.render import Renderer
 import pygame
 import numpy as np
 import math
-from ant.envs.snake.engine import SnakeEngine, TYPE_EMPTY, TYPE_FOOD, TYPE_SNAKE, TYPE_WALL
+from ant.envs.snake.engine import SnakeEngine, TYPE_EMPTY, TYPE_FOOD, TYPE_SNAKE, TYPE_WALL, TYPE_SNAKE_HEAD_UP, TYPE_SNAKE_HEAD_DOWN,  TYPE_SNAKE_HEAD_LEFT, TYPE_SNAKE_HEAD_RIGHT
 from ant.envs.snake.snake_unit import SnakeUnit, DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP
 from ant.envs.snake.wall import Wall
 from ant.envs.snake.render import SnakeRenderer
@@ -19,7 +19,7 @@ class SnakeEnv(gym.Env):
 
     def __init__(self, render_mode='human', size=10, visibleArea=5):
         self.size = size  # The size of the square grid
-        self.window_size = 720  # The size of the PyGame window
+        self.window_size = 180  # The size of the PyGame window
         self.visibleAreaSize = visibleArea
         self.distanceToFood = 0
         self.closed = False
@@ -28,13 +28,15 @@ class SnakeEnv(gym.Env):
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
 
-        self.observation_space = spaces.Dict({
-            "area": spaces.Box(-1, 1, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=float),
-            "head": spaces.Box(0, 1, shape=(2,), dtype=float),
-            "food": spaces.MultiBinary(4),
-            "direction": spaces.MultiBinary(4),
-            "danger": spaces.MultiBinary(3),
-        })
+        # self.observation_space = spaces.Dict({
+        #     "area": spaces.Box(-1, 1, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=float),
+        #     "head": spaces.Box(0, 1, shape=(2,), dtype=float),
+        #     "food": spaces.MultiBinary(4),
+        #     "direction": spaces.MultiBinary(4),
+        #     "danger": spaces.MultiBinary(3),
+        # })
+        #self.observation_space = spaces.Box(0, 255, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=np.uint8)
+        self.observation_space = spaces.Box(0, 255, shape=(3, self.window_size, self.window_size,), dtype=np.uint8)
 
         # We have 3 actions, corresponding to "left", "straight", "right"
         self.action_space = spaces.Discrete(4)
@@ -55,20 +57,28 @@ class SnakeEnv(gym.Env):
         self._drawer = None
 
     def _get_obs(self):
-        flattenArea = self._getFlattenVisibleArea()
+        arr = self._render_frame(self.render_mode)
+        arr = np.moveaxis(arr, -1, 0)
+        # print("arr\n", arr)
+        return np.array(arr)
+        # flattenArea = np.array(self.getMatrixImage())
+        # flattenArea = np.moveaxis(flattenArea, -1, 0)
+
+        # print('flattenArea', flattenArea)
         # if self.render_mode == "human":
         #     print('direction', self.snakeUnit.direction)
         #     print('head', self.getNormalizedHeadPos())
         #     print('target', self.getNormalizedTargetPos())
         #     print('area', flattenArea)
 
-        return {
-            "area": np.array(flattenArea),
-            "head": self.getNormalizedHeadPos(),
-            "food": self.getNormalizedFoodDirection(),
-            "direction": self.getNormalizedSnakeDirection(),
-            "danger": self.getDangerObs(),
-        }
+        # return np.array(flattenArea)
+        # return {
+        #     "area": np.array(flattenArea),
+        #     "head": self.getNormalizedHeadPos(),
+        #     "food": self.getNormalizedFoodDirection(),
+        #     "direction": self.getNormalizedSnakeDirection(),
+        #     "danger": self.getDangerObs(),
+        # }
 
     def getDangerObs(self):
         hX = self._headPos[0]
@@ -132,6 +142,16 @@ class SnakeEnv(gym.Env):
             1 if fX < hX else 0, # left
             1 if fX > hX else 0, # right
         ])
+    
+    def getMatrixImage(self):
+        flattenArea = []
+        y = 0
+        for row in self._visibleArea:
+            flattenArea.append([])
+            for val in row:
+                flattenArea[y].append([self.normalizeCellTypeInGrayScale(val)])
+            y = y + 1
+        return flattenArea
 
     def _getFlattenVisibleArea(self):
         flattenArea = []
@@ -139,6 +159,26 @@ class SnakeEnv(gym.Env):
             for val in row:
                 flattenArea.append(self.normalizeCellType(val))
         return flattenArea
+    
+    def normalizeCellTypeInGrayScale(self, cellType):
+        if cellType == TYPE_FOOD:
+            return 30
+        elif cellType == TYPE_EMPTY:
+            return 0
+        elif cellType == TYPE_SNAKE_HEAD_UP:
+            return 170
+        elif cellType == TYPE_SNAKE_HEAD_DOWN:
+            return 140
+        elif cellType == TYPE_SNAKE_HEAD_LEFT:
+            return 110
+        elif cellType == TYPE_SNAKE_HEAD_RIGHT:
+            return 80
+        elif cellType == TYPE_SNAKE:
+            return 200
+        elif cellType == TYPE_WALL:
+            return 255
+        else:
+            return 0
 
     def normalizeCellType(self, cellType):
         if cellType > 7:
@@ -228,39 +268,6 @@ class SnakeEnv(gym.Env):
 
         return modelAction
 
-        # if self.render_mode == "human":
-        #     print("modelAction", modelAction)
-
-        if self.snakeUnit.direction == DIR_UP:
-            if modelAction == LEFT:
-                return DIR_LEFT
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_RIGHT
-        elif self.snakeUnit.direction == DIR_DOWN:
-            if modelAction == LEFT:
-                return DIR_RIGHT
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_LEFT
-        elif self.snakeUnit.direction == DIR_LEFT:
-            if modelAction == LEFT:
-                return DIR_DOWN
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_UP
-        elif self.snakeUnit.direction == DIR_RIGHT:
-            if modelAction == LEFT:
-                return DIR_UP
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_DOWN
-        return 0
-
     def step(self, action):
         self.snakeUnit.turn(self.prepareModelAction(action))
         self.engine.step()
@@ -316,10 +323,10 @@ class SnakeEnv(gym.Env):
         if self.clock is None and mode == "human":
             self.clock = pygame.time.Clock()
 
-        if self._drawer is None and mode == "human":
+        if self._drawer is None and (mode == "human" or mode == "rgb_array"):
             self._drawer = SnakeRenderer(self.window, (self.size, self.size), (self.window_size, self.window_size))
 
-        if mode == "human":
+        if mode == "human" or mode == "rgb_array":
             canvas = self._drawer.draw(self.engine.getMatrix(), {
                 "visibleArea": self._visibleArea
             })

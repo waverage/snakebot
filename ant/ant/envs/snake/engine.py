@@ -188,10 +188,10 @@ class SnakeEngine:
         self.walls.append(wall)
 
     def _fixSnakeCellTypes(self, area):
-        for x in range(0, len(area)):
-            for y in range(0, len(area[x])):
-                if area[x][y] >= 2 and area[x][y] <= 5:
-                    area[x][y] = TYPE_SNAKE
+        # for x in range(0, len(area)):
+        #     for y in range(0, len(area[x])):
+        #         if area[x][y] >= 2 and area[x][y] <= 5:
+        #             area[x][y] = TYPE_SNAKE
 
         return area
 
