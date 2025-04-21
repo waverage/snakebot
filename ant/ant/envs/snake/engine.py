@@ -17,24 +17,34 @@ TYPE_SNAKE = 6
 TYPE_WALL = 7
 
 class SnakeEngine:
-    def __init__(self, size=(10, 10)):
+    def __init__(self, size=(10, 10), random_state=False):
         self.size = size
         self.isGameEnd = False
+        self.gameEndReason = ""
         self.isWin = False
         self.snakes = [] # Snake.py
         self.walls = [] # Wall.py
         self.foodPos = (-1, -1)
         self.foodReached = False
+        self.random_state = random_state
 
     def reset(self):
         self.isGameEnd = False
+        self.gameEndReason = ""
         self.isWin = False
 
-        for sn in self.snakes:
-            sn.reset()
+        if self.random_state:
+            for sn in self.snakes:
+                sn.setBody(self.generateRandomSnakeBody())
+        else:
+            for sn in self.snakes:
+                sn.reset()
 
         # init food position
         self.generateNewFood()
+    
+    def generateRandomSnakeBody(self):
+        pass
     
     def getFoodPosition(self):
         return self.foodPos
@@ -51,6 +61,7 @@ class SnakeEngine:
         if len(freePositions) <= 0:
             self.isWin = True
             self.isGameEnd = True
+            self.gameEndReason = "game completed"
             return
 
         foodIndex = random.randint(0, len(freePositions) - 1)
@@ -101,14 +112,17 @@ class SnakeEngine:
                 if self.checkPosOutOfRange(pos):
                     # Snake out of range so snake should die
                     snake.die()
+                    self.gameEndReason = "snake left the field"
                     break
 
                 if matrix[pos[0]][pos[1]] == TYPE_WALL:
                     snake.die()
+                    self.gameEndReason = "snake crushed into the wall"
                     break
 
                 if index == snakeLen - 1 and matrix[pos[0]][pos[1]] == TYPE_SNAKE:
                     snake.die()
+                    self.gameEndReason = "snake crushed into its body"
                     break
 
                 matrix[pos[0]][pos[1]] = TYPE_SNAKE

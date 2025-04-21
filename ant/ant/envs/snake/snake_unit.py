@@ -84,7 +84,6 @@ class SnakeUnit:
         # Move head forward and remove last part if need
         newSnake = self.snake[::]
 
-        headIndex = len(newSnake) - 1
         newSnake.append(newHeadPos)
         if not foodReached:
             newSnake.pop(0)

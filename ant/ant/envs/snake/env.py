@@ -9,36 +9,38 @@ from ant.envs.snake.engine import SnakeEngine, TYPE_EMPTY, TYPE_FOOD, TYPE_SNAKE
 from ant.envs.snake.snake_unit import SnakeUnit, DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP
 from ant.envs.snake.wall import Wall
 from ant.envs.snake.render import SnakeRenderer
-
-#from snake_unit import SnakeUnit
+from PIL import Image
 
 STEPS_LIMIT = 2000
+OBS_TYPE_IMAGE = "image"
+OBS_TYPE_DICT = "dict"
+OBS_TYPE_TEXT = "text"
 
 class SnakeEnv(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array", "single_rgb_array", "none"], "render_fps": 10}
 
-    def __init__(self, render_mode='human', size=10, visibleArea=5):
+    def __init__(self, render_mode='human', size=10, visibleArea=5, observation_type=OBS_TYPE_IMAGE, window_size=180, cnn_input_size=40, random_state=False):
         self.size = size  # The size of the square grid
-        self.window_size = 180  # The size of the PyGame window
+        self.window_size = window_size  # The size of the PyGame window
         self.visibleAreaSize = visibleArea
         self.distanceToFood = 0
         self.closed = False
         self.steps = 0
+        self.observation_type = observation_type
+        self.cnn_input_size = cnn_input_size
+        self.random_state = random_state
 
-        # Observations are dictionaries with the agent's and the target's location.
-        # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
+        if self.observation_type == OBS_TYPE_IMAGE:
+            self.observation_space = spaces.Box(0, 255, shape=(3, self.cnn_input_size, self.cnn_input_size,), dtype=np.uint8)
+        else:
+            self.observation_space = spaces.Dict({
+                "area": spaces.Box(-1, 1, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=float),
+                "head": spaces.Box(0, 1, shape=(2,), dtype=float),
+                "food": spaces.MultiBinary(4),
+                "direction": spaces.MultiBinary(4),
+            })
 
-        # self.observation_space = spaces.Dict({
-        #     "area": spaces.Box(-1, 1, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=float),
-        #     "head": spaces.Box(0, 1, shape=(2,), dtype=float),
-        #     "food": spaces.MultiBinary(4),
-        #     "direction": spaces.MultiBinary(4),
-        #     "danger": spaces.MultiBinary(3),
-        # })
-        #self.observation_space = spaces.Box(0, 255, shape=(self.visibleAreaSize * self.visibleAreaSize,), dtype=np.uint8)
-        self.observation_space = spaces.Box(0, 255, shape=(3, self.window_size, self.window_size,), dtype=np.uint8)
-
-        # We have 3 actions, corresponding to "left", "straight", "right"
+        # We have 4 actions, corresponding to "left", "up", "down", "right"
         self.action_space = spaces.Discrete(4)
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -57,69 +59,48 @@ class SnakeEnv(gym.Env):
         self._drawer = None
 
     def _get_obs(self):
-        arr = self._render_frame(self.render_mode)
-        arr = np.moveaxis(arr, -1, 0)
-        # print("arr\n", arr)
-        return np.array(arr)
-        # flattenArea = np.array(self.getMatrixImage())
-        # flattenArea = np.moveaxis(flattenArea, -1, 0)
+        if self.observation_type == OBS_TYPE_IMAGE:
+            arr = self._render_frame(self.render_mode)
+            pimg = Image.fromarray(arr, "RGB")
+            pimg = pimg.resize((self.cnn_input_size, self.cnn_input_size))
+            # pimg.show()
+            # exit()
+            # print('big image', np.asarray(pimg))
 
-        # print('flattenArea', flattenArea)
-        # if self.render_mode == "human":
-        #     print('direction', self.snakeUnit.direction)
-        #     print('head', self.getNormalizedHeadPos())
-        #     print('target', self.getNormalizedTargetPos())
-        #     print('area', flattenArea)
+            arr = np.asarray(pimg)
+            arr = np.moveaxis(arr, -1, 0)
+            return arr
+        elif self.observation_type == OBS_TYPE_TEXT:
+            state = ""
+            #print("visible area\n", self._visibleArea)
+            rows = []
+            for x in range(0, self.size):
+                rows.append([])
+                for y in range(0, self.size):
+                    rows[x].append(0)
 
-        # return np.array(flattenArea)
-        # return {
-        #     "area": np.array(flattenArea),
-        #     "head": self.getNormalizedHeadPos(),
-        #     "food": self.getNormalizedFoodDirection(),
-        #     "direction": self.getNormalizedSnakeDirection(),
-        #     "danger": self.getDangerObs(),
-        # }
+            for x, column in enumerate(self._visibleArea):
+                for y, val in enumerate(column):
+                    cell = self.normalizeCellTypeText(val)
+                    rows[y][x] = cell
 
-    def getDangerObs(self):
-        hX = self._headPos[0]
-        hY = self._headPos[1]
-        d = self.snakeUnit.direction
-        # TYPE_EMPTY = 0
-        # TYPE_FOOD = 1
-        # TYPE_SNAKE_HEAD_UP = 2
-        # TYPE_SNAKE_HEAD_RIGHT = 3
-        # TYPE_SNAKE_HEAD_DOWN = 4
-        # TYPE_SNAKE_HEAD_LEFT = 5
-        # TYPE_SNAKE = 6
-        # TYPE_WALL = 7
+            for row in rows:
+                for i, cell in enumerate(row):
+                    if i == len(row) - 1:
+                        state += cell
+                    else:
+                        state += cell + " "
+                state += "\n"
 
-        m = self._visibleArea
-
-        v = [0, 0]
-        lv = [0, 0]
-        rv = [0, 0]
-        if d == DIR_UP:
-            v[1] = -1
-            lv[0] = -1
-            rv[0] = 1
-        elif d == DIR_DOWN:
-            v[1] = 1
-            lv[0] = 1
-            rv[0] = -1
-        if d == DIR_LEFT:
-            v[0] = -1
-            lv[1] = 1
-            rv[1] = -1
-        elif d == DIR_RIGHT:
-            v[0] = 1
-            lv[1] = -1
-            rv[1] = 1
-
-        return np.array([
-            1 if m[hX + v[0]][hY + v[1]] > 1 else 0, # ahead
-            1 if m[hX + lv[0]][hY + lv[1]] > 1 else 0, # left
-            1 if m[hX + rv[0]][hY + rv[1]] > 1 else 0, # right
-        ])
+            return state
+        else:
+            flattenArea = self._getFlattenVisibleArea()
+            return {
+                "area": np.array(flattenArea),
+                "head": self.getNormalizedHeadPos(),
+                "food": self.getNormalizedFoodDirection(),
+                "direction": self.getNormalizedSnakeDirection(),
+            }        
     
     def getNormalizedSnakeDirection(self):
         d = self.snakeUnit.direction
@@ -142,16 +123,6 @@ class SnakeEnv(gym.Env):
             1 if fX < hX else 0, # left
             1 if fX > hX else 0, # right
         ])
-    
-    def getMatrixImage(self):
-        flattenArea = []
-        y = 0
-        for row in self._visibleArea:
-            flattenArea.append([])
-            for val in row:
-                flattenArea[y].append([self.normalizeCellTypeInGrayScale(val)])
-            y = y + 1
-        return flattenArea
 
     def _getFlattenVisibleArea(self):
         flattenArea = []
@@ -159,26 +130,7 @@ class SnakeEnv(gym.Env):
             for val in row:
                 flattenArea.append(self.normalizeCellType(val))
         return flattenArea
-    
-    def normalizeCellTypeInGrayScale(self, cellType):
-        if cellType == TYPE_FOOD:
-            return 30
-        elif cellType == TYPE_EMPTY:
-            return 0
-        elif cellType == TYPE_SNAKE_HEAD_UP:
-            return 170
-        elif cellType == TYPE_SNAKE_HEAD_DOWN:
-            return 140
-        elif cellType == TYPE_SNAKE_HEAD_LEFT:
-            return 110
-        elif cellType == TYPE_SNAKE_HEAD_RIGHT:
-            return 80
-        elif cellType == TYPE_SNAKE:
-            return 200
-        elif cellType == TYPE_WALL:
-            return 255
-        else:
-            return 0
+
 
     def normalizeCellType(self, cellType):
         if cellType > 7:
@@ -194,16 +146,34 @@ class SnakeEnv(gym.Env):
             return -1
         else:
             return 0
+
+    def normalizeCellTypeText(self, cellType):
+        if cellType > 7:
+            cellType = 7
+
+        if cellType == TYPE_FOOD:
+            return "f"
+        elif cellType == TYPE_EMPTY:
+            return "."
+        elif cellType == TYPE_SNAKE:
+            return "b"
+        elif cellType == TYPE_WALL:
+            return "w"
+        elif cellType == TYPE_SNAKE_HEAD_UP:
+            return "u"
+        elif cellType == TYPE_SNAKE_HEAD_RIGHT:
+            return "r"
+        elif cellType == TYPE_SNAKE_HEAD_DOWN:
+            return "d"
+        elif cellType == TYPE_SNAKE_HEAD_LEFT:
+            return "l"
+        else:
+            return "0"
     
     def getNormalizedHeadPos(self):
         x = self.norm(self._headPos[0], 0, self.size - 1)
         y = self.norm(self._headPos[1], 0, self.size - 1)
         return np.array([x, y])
-
-    # def getNormalizedTargetPos(self):
-    #     x = self.norm(self._target_location[0], 0, self.size - 1)
-    #     y = self.norm(self._target_location[1], 0, self.size - 1)
-    #     return np.array([x, y])
 
     # normalize from -1 to 1
     def norm(self, val, min, max):
@@ -216,7 +186,7 @@ class SnakeEnv(gym.Env):
         # We need the following line to seed self.np_random
         #super().reset()
 
-        self.engine = SnakeEngine((self.size, self.size))
+        self.engine = SnakeEngine((self.size, self.size), random_state=self.random_state)
 
         self.steps = 0
         self.distanceToFood = 0
@@ -241,10 +211,6 @@ class SnakeEnv(gym.Env):
         self._headPos = self.snakeUnit.getHeadPos()
         self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
 
-        # print('')
-        # print('Agent head pos', self._headPos)
-        # print('Agent area', self._visibleArea)
-
         # We will sample the target's location randomly until it does not coincide with the agent's location
         self._target_location = self.engine.getFoodPosition()
 
@@ -253,41 +219,30 @@ class SnakeEnv(gym.Env):
         self._renderer.reset()
         self._renderer.render_step()
 
-        # print("reset obs ", observation)
-
         return observation
 
     def prepareModelAction(self, modelAction):
-        # DIR_UP = 0
-        # DIR_RIGHT = 1
-        # DIR_DOWN = 2
-        # DIR_LEFT = 3
-        LEFT = 0
-        STRAIGHT = 1
-        RIGHT = 2
-
         return modelAction
 
     def step(self, action):
         self.snakeUnit.turn(self.prepareModelAction(action))
         self.engine.step()
 
-        done = self.engine.isFoodReached()
-
+        doneReason = ""
         done = False
         if self.engine.isFoodReached():
             reward = 1
         elif self.engine.isGameOver():
+            doneReason = self.engine.gameEndReason
             if self.render_mode == "human":
                 snakeLen = len(self.snakeUnit.snake)
                 print('Game over: ', snakeLen)
-            reward = -10
+            reward = -3
             done = True
         else:
             distance = self.getDistanceToFood()
-            #print('distance to food', distance)
             if distance > self.distanceToFood:
-                reward = -0.11
+                reward = -0.09
             else:
                 reward = 0.1
 
@@ -307,7 +262,8 @@ class SnakeEnv(gym.Env):
         self._renderer.render_step()
 
         return observation, reward, done, {
-            "closed": self.closed
+            "closed": self.closed,
+            "reason": doneReason
         }
 
     def render(self, second):
@@ -323,10 +279,10 @@ class SnakeEnv(gym.Env):
         if self.clock is None and mode == "human":
             self.clock = pygame.time.Clock()
 
-        if self._drawer is None and (mode == "human" or mode == "rgb_array"):
+        if self._drawer is None and (mode == "human" or mode == "rgb_array" or mode == "single_rgb_array"):
             self._drawer = SnakeRenderer(self.window, (self.size, self.size), (self.window_size, self.window_size))
 
-        if mode == "human" or mode == "rgb_array":
+        if mode == "human" or mode == "rgb_array" or mode == "single_rgb_array":
             canvas = self._drawer.draw(self.engine.getMatrix(), {
                 "visibleArea": self._visibleArea
             })
@@ -346,7 +302,10 @@ class SnakeEnv(gym.Env):
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
-        elif mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+            )
+        elif mode == "rgb_array" or mode == "single_rgb_array":
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )

@@ -15,7 +15,7 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
     return func
 
 env_name = "ant/Snake-v1"
-env = gym.make(env_name, render_mode="none", visibleArea=10)
+env = gym.make(env_name, render_mode="none", visibleArea=10, observation_type="dict")
 model_name = 'dqn_10'
 
 model_path = 'models/' + model_name + '.zip'

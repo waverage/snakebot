@@ -1,25 +1,25 @@
 import gym
 import ant
-from stable_baselines3 import DQN
+import gptbot
 
 # Parallel environments
 env_name = "ant/Snake-v1"
-env = gym.make(env_name, render_mode="human", visibleArea=10)
+env = gym.make(env_name, render_mode="human", size=7, visibleArea=7, observation_type="text", window_size=270)
 
-model = DQN.load("models/dqn_10", env=env, verbose=1)
-
-# print(model.policy)
 
 obs = env.reset()
 
 print("obs shape", env.observation_space.shape)
-# summary(model.policy.q_net, (1, 108))
+
+bot = gptbot.ChatGptBot()
+
 while True:
-    action, _states = model.predict(obs)
+    action = bot.predict(obs)
     obs, rewards, done, info = env.step(action)
 
     if done:
         env.reset()
+        bot.punch(info["reason"])
         continue
 
     #print('info', info)
@@ -28,3 +28,4 @@ while True:
     env.render()
 
 env.close()
+

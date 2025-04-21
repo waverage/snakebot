@@ -9,23 +9,6 @@ import torch.nn as nn
 from gym import spaces
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-# n_input_channels = observation_space.shape[0]
-# self.cnn = nn.Sequential(
-#     nn.Conv2d(n_input_channels, 32, kernel_size=8, stride=4, padding=0),
-#     nn.ReLU(),
-#     nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0),
-#     nn.ReLU(),
-#     nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0),
-#     nn.ReLU(),
-#     nn.Flatten(),
-# )
-
-# # Compute shape by doing one forward pass
-# with th.no_grad():
-#     n_flatten = self.cnn(th.as_tensor(observation_space.sample()[None]).float()).shape[1]
-
-# self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim), nn.ReLU())
-
 class CustomCNN(BaseFeaturesExtractor):
     """
     :param observation_space: (gym.Space)
@@ -62,13 +45,11 @@ class CustomCNN(BaseFeaturesExtractor):
         return self.linear(self.cnn(observations))
 
 env_name = "ant/Snake-v1"
-env = gym.make(env_name, render_mode="rgb_array", visibleArea=10)
+env = gym.make(env_name, render_mode="single_rgb_array", visibleArea=10, window_size=280, cnn_input_size=40)
 model_name = 'cnn_10'
 
 model_path = 'models/' + model_name + '.zip'
-# if os.path.isfile(model_path):
-#     model = DQN.load(model_path, env=env)
-# else:
+
 # Custom actor (pi) and value function (vf) networks
 # of two layers of size 32 each with Relu activation function
 # Note: an extra linear layer will be added on top of the pi and the vf nets, respectively
@@ -84,16 +65,17 @@ model = DQN(
     env,
     verbose=1,
     # policy_kwargs=policy_kwargs,
-    learning_starts=10000,
-    device=th.device("mps"),
-    # learning_rate=0.1,
+    learning_starts=10_000,
+    device=th.device("cuda:0"),#mps for mac os
+    #learning_rate=0.01,
+    gamma=0.8,
     # policy_kwargs=policy_kwargs,
     # learning_rate=linear_schedule(0.0001),
-    buffer_size=10_000,
+    buffer_size=50_000,
     # batch_size=32,
     # gradient_steps=1,
     # target_update_interval=10_000,
-    # exploration_fraction=0.1,
+    exploration_fraction=0.3,
     # exploration_final_eps=0.05,
 )
 
