@@ -4,6 +4,7 @@ from stable_baselines3 import DQN
 import os.path
 import torch as th
 from typing import Callable
+import torch_xla.core.xla_model as xm
 
 def linear_schedule(initial_value: float) -> Callable[[float], float]:
     def func(progress_remaining: float) -> float:
@@ -17,6 +18,8 @@ def linear_schedule(initial_value: float) -> Callable[[float], float]:
 env_name = "ant/Snake-v1"
 env = gym.make(env_name, render_mode="none", visibleArea=10)
 model_name = 'dqn_10'
+
+device = xm.xla_device()
 
 model_path = 'models/' + model_name + '.zip'
 if os.path.isfile(model_path):
@@ -36,6 +39,7 @@ else:
         policy_kwargs=policy_kwargs,
         learning_rate=linear_schedule(0.0001),
         buffer_size=100_000,
+        device=device,
         # batch_size=32,
         # gradient_steps=1,
         # target_update_interval=10_000,
