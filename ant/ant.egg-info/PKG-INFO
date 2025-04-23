@@ -1,3 +1,5 @@
 Metadata-Version: 2.1
 Name: ant
 Version: 0.0.1
+Requires-Dist: gym==0.23.0
+Requires-Dist: pygame==2.1.0
