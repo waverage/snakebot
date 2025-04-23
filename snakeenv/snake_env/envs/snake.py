@@ -1,16 +1,25 @@
+from enum import Enum
+import gymnasium as gym
+from gymnasium import spaces
+import pygame
+import numpy as np
+
 from ctypes.wintypes import FLOAT
-import gym
-from gym import spaces
-from ant.render import Renderer
+from snakeenv.snake_env.render import Renderer
 import pygame
 import numpy as np
 import math
-from ant.envs.snake.engine import SnakeEngine, TYPE_EMPTY, TYPE_FOOD, TYPE_SNAKE, TYPE_WALL
-from ant.envs.snake.snake_unit import SnakeUnit, DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP
-from ant.envs.snake.wall import Wall
-from ant.envs.snake.render import SnakeRenderer
+from snakeenv.snake_env.envs.engine import SnakeEngine, TYPE_EMPTY, TYPE_FOOD, TYPE_SNAKE, TYPE_WALL
+from snakeenv.snake_env.envs.snake_unit import SnakeUnit, DIR_DOWN, DIR_LEFT, DIR_RIGHT, DIR_UP
+from snakeenv.snake_env.envs.wall import Wall
+from snakeenv.snake_env.envs.render import SnakeRenderer
 
-#from snake_unit import SnakeUnit
+
+class Actions(Enum):
+    up = 0
+    right = 1
+    down = 2
+    left = 3
 
 STEPS_LIMIT = 2000
 
@@ -69,6 +78,153 @@ class SnakeEnv(gym.Env):
             "direction": self.getNormalizedSnakeDirection(),
             "danger": self.getDangerObs(),
         }
+
+    # ??????
+    def _get_info(self):
+        return {
+            "distance": 0
+        }
+
+    def reset(self, seed=None, options=None):
+        # We need the following line to seed self.np_random
+        super().reset(seed=seed)
+
+        # We need the following line to seed self.np_random
+        #super().reset()
+
+        self.engine = SnakeEngine((self.size, self.size))
+
+        self.steps = 0
+        self.distanceToFood = 0
+        self.snakeUnit = SnakeUnit()
+        x = math.floor(self.size / 2)
+        y = math.floor(self.size / 2)
+        self.snakeUnit.setBody([(x - 1, y), (x, y)])
+        self.engine.addSnake(self.snakeUnit)
+
+        # Init walls
+        # Generate four walls, like room with four walls
+        coords = []
+        for x in range(0, self.size):
+            for y in range(0, self.size):
+                if y == 0 or y == self.size - 1 or x == 0 or x == self.size - 1:
+                    coords.append((x, y))
+        roomWall = Wall(coords)
+        self.engine.addWall(roomWall)
+
+        self.engine.reset()
+
+        self._headPos = self.snakeUnit.getHeadPos()
+        self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
+
+        # print('')
+        # print('Agent head pos', self._headPos)
+        # print('Agent area', self._visibleArea)
+
+        # We will sample the target's location randomly until it does not coincide with the agent's location
+        self._target_location = self.engine.getFoodPosition()
+
+        observation = self._get_obs()
+
+        self._renderer.reset()
+        self._renderer.render_step()
+
+        # print("reset obs ", observation)
+
+        return observation, self._get_info()
+
+    def step(self, action):
+        self.snakeUnit.turn(self.prepareModelAction(action))
+        self.engine.step()
+
+        done = self.engine.isFoodReached()
+
+        done = False
+        if self.engine.isFoodReached():
+            reward = 1
+        elif self.engine.isGameOver():
+            if self.render_mode == "human":
+                snakeLen = len(self.snakeUnit.snake)
+                print('Game over: ', snakeLen)
+            reward = -10
+            done = True
+        else:
+            distance = self.getDistanceToFood()
+            #print('distance to food', distance)
+            if distance > self.distanceToFood:
+                reward = -0.11
+            else:
+                reward = 0.1
+
+            self.distanceToFood = distance
+
+        self.steps += 1
+        if self.steps >= STEPS_LIMIT:
+            reward = -1
+            done = True
+
+        self._headPos = self.snakeUnit.getHeadPos()
+        self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
+        self._target_location = self.engine.getFoodPosition()
+
+        observation = self._get_obs()
+
+        self._renderer.render_step()
+
+        return observation, reward, done, False, {
+            "closed": self.closed
+        }
+
+    def render(self):
+        return self._renderer.get_renders()
+
+    def _render_frame(self, mode):
+        assert mode is not None
+
+        if self.window is None and mode == "human":
+            pygame.init()
+            pygame.display.init()
+            self.window = pygame.display.set_mode((self.window_size, self.window_size))
+        if self.clock is None and mode == "human":
+            self.clock = pygame.time.Clock()
+
+        if self._drawer is None and mode == "human":
+            self._drawer = SnakeRenderer(self.window, (self.size, self.size), (self.window_size, self.window_size))
+
+        if mode == "human":
+            canvas = self._drawer.draw(self.engine.getMatrix(), {
+                "visibleArea": self._visibleArea
+            })
+
+        if mode == "human":
+            # The following line copies our drawings from `canvas` to the visible window
+            self.window.blit(canvas, canvas.get_rect())
+            pygame.event.pump()
+            pygame.display.update()
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print('Received pygame.quit')
+                    self.close()
+                    return
+
+            # We need to ensure that human-rendering occurs at the predefined framerate.
+            # The following line will automatically add a delay to keep the framerate stable.
+            self.clock.tick(self.metadata["render_fps"])
+        elif mode == "rgb_array":
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+            )
+        else:  # rgb_array
+            return None
+
+    def close(self):
+        self.closed = True
+        if self.window is not None:
+            pygame.display.quit()
+            pygame.quit()
+
+    ###############
 
     def getDangerObs(self):
         hX = self._headPos[0]
@@ -132,14 +288,7 @@ class SnakeEnv(gym.Env):
             1 if fX < hX else 0, # left
             1 if fX > hX else 0, # right
         ])
-
-    def _getFlattenVisibleArea(self):
-        flattenArea = []
-        for row in self._visibleArea:
-            for val in row:
-                flattenArea.append(self.normalizeCellType(val))
-        return flattenArea
-
+    
     def normalizeCellType(self, cellType):
         if cellType > 7:
             cellType = 7
@@ -154,69 +303,18 @@ class SnakeEnv(gym.Env):
             return -1
         else:
             return 0
-    
+        
     def getNormalizedHeadPos(self):
         x = self.norm(self._headPos[0], 0, self.size - 1)
         y = self.norm(self._headPos[1], 0, self.size - 1)
         return np.array([x, y])
-
-    # def getNormalizedTargetPos(self):
-    #     x = self.norm(self._target_location[0], 0, self.size - 1)
-    #     y = self.norm(self._target_location[1], 0, self.size - 1)
-    #     return np.array([x, y])
-
-    # normalize from -1 to 1
+    
     def norm(self, val, min, max):
         return 2 * ((val - min) / (max - min)) - 1
-
+    
     def getDistanceToFood(self):
         return np.linalg.norm(np.array(self._headPos) - np.array(self._target_location), ord=1)
-
-    def reset(self):
-        # We need the following line to seed self.np_random
-        #super().reset()
-
-        self.engine = SnakeEngine((self.size, self.size))
-
-        self.steps = 0
-        self.distanceToFood = 0
-        self.snakeUnit = SnakeUnit()
-        x = math.floor(self.size / 2)
-        y = math.floor(self.size / 2)
-        self.snakeUnit.setBody([(x - 1, y), (x, y)])
-        self.engine.addSnake(self.snakeUnit)
-
-        # Init walls
-        # Generate four walls, like room with four walls
-        coords = []
-        for x in range(0, self.size):
-            for y in range(0, self.size):
-                if y == 0 or y == self.size - 1 or x == 0 or x == self.size - 1:
-                    coords.append((x, y))
-        roomWall = Wall(coords)
-        self.engine.addWall(roomWall)
-
-        self.engine.reset()
-
-        self._headPos = self.snakeUnit.getHeadPos()
-        self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
-
-        # print('')
-        # print('Agent head pos', self._headPos)
-        # print('Agent area', self._visibleArea)
-
-        # We will sample the target's location randomly until it does not coincide with the agent's location
-        self._target_location = self.engine.getFoodPosition()
-
-        observation = self._get_obs()
-
-        self._renderer.reset()
-        self._renderer.render_step()
-
-        # print("reset obs ", observation)
-
-        return observation
-
+    
     def prepareModelAction(self, modelAction):
         # DIR_UP = 0
         # DIR_RIGHT = 1
@@ -228,126 +326,10 @@ class SnakeEnv(gym.Env):
 
         return modelAction
 
-        # if self.render_mode == "human":
-        #     print("modelAction", modelAction)
-
-        if self.snakeUnit.direction == DIR_UP:
-            if modelAction == LEFT:
-                return DIR_LEFT
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_RIGHT
-        elif self.snakeUnit.direction == DIR_DOWN:
-            if modelAction == LEFT:
-                return DIR_RIGHT
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_LEFT
-        elif self.snakeUnit.direction == DIR_LEFT:
-            if modelAction == LEFT:
-                return DIR_DOWN
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_UP
-        elif self.snakeUnit.direction == DIR_RIGHT:
-            if modelAction == LEFT:
-                return DIR_UP
-            elif modelAction == STRAIGHT:
-                return self.snakeUnit.direction
-            else:
-                return DIR_DOWN
-        return 0
-
-    def step(self, action):
-        self.snakeUnit.turn(self.prepareModelAction(action))
-        self.engine.step()
-
-        done = self.engine.isFoodReached()
-
-        done = False
-        if self.engine.isFoodReached():
-            reward = 1
-        elif self.engine.isGameOver():
-            if self.render_mode == "human":
-                snakeLen = len(self.snakeUnit.snake)
-                print('Game over: ', snakeLen)
-            reward = -10
-            done = True
-        else:
-            distance = self.getDistanceToFood()
-            #print('distance to food', distance)
-            if distance > self.distanceToFood:
-                reward = -0.11
-            else:
-                reward = 0.1
-
-            self.distanceToFood = distance
-
-        self.steps += 1
-        if self.steps >= STEPS_LIMIT:
-            reward = -1
-            done = True
-
-        self._headPos = self.snakeUnit.getHeadPos()
-        self._visibleArea = self.engine.getVisibleArea(self.visibleAreaSize, self.snakeUnit.getHeadPos())
-        self._target_location = self.engine.getFoodPosition()
-
-        observation = self._get_obs()
-
-        self._renderer.render_step()
-
-        return observation, reward, done, {
-            "closed": self.closed
-        }
-
-    def render(self, second):
-        return self._renderer.get_renders()
-
-    def _render_frame(self, mode):
-        assert mode is not None
-
-        if self.window is None and mode == "human":
-            pygame.init()
-            pygame.display.init()
-            self.window = pygame.display.set_mode((self.window_size, self.window_size))
-        if self.clock is None and mode == "human":
-            self.clock = pygame.time.Clock()
-
-        if self._drawer is None and mode == "human":
-            self._drawer = SnakeRenderer(self.window, (self.size, self.size), (self.window_size, self.window_size))
-
-        if mode == "human":
-            canvas = self._drawer.draw(self.engine.getMatrix(), {
-                "visibleArea": self._visibleArea
-            })
-
-        if mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
-            pygame.display.update()
-
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    print('Received pygame.quit')
-                    self.close()
-                    return
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to keep the framerate stable.
-            self.clock.tick(self.metadata["render_fps"])
-        elif mode == "rgb_array":
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )
-        else:  # rgb_array
-            return None
-
-    def close(self):
-        self.closed = True
-        if self.window is not None:
-            pygame.display.quit()
-            pygame.quit()
+    def _getFlattenVisibleArea(self):
+        flattenArea = []
+        for row in self._visibleArea:
+            for val in row:
+                flattenArea.append(self.normalizeCellType(val))
+        return flattenArea
+    

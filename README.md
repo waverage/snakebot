@@ -10,3 +10,7 @@ https://towardsdatascience.com/how-to-teach-an-ai-to-play-games-deep-reinforceme
 https://www.tensorflow.org/agents/tutorials/2_environments_tutorial
 https://www.geeksforgeeks.org/pygame-time/
 https://www.pygame.org/docs/ref/time.html
+
+
+# Install localy
+pip install -e .
